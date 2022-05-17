@@ -1,0 +1,5 @@
+In signal manual, it says to avoid the use of signal() and use sigaction() instead, thus we (the group) assume that sigaction() is way more viable.
+
+Sigaction function will block other signals until a receive a return value, however signal function , doesn't block other signals.
+
+Sigaction function is also way more complete that signal (more parameters).

@@ -1,0 +1,3 @@
+Signal handlers have a problem accessing static data structures.
+From this, you can get corrupted data and such.
+If you try and call printf() within a signal handler, many times you will get strange output.

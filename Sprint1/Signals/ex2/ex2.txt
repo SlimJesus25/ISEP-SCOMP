@@ -1,0 +1,9 @@
+a) ex2.c
+
+b) Sinal: SIGSTOP 
+
+c) Sinal: SIGCONT
+
+d) SIGKILL
+
+e) ex2e.c

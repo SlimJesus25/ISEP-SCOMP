@@ -1,0 +1,38 @@
+Utilizado: kill -l Para obter o sinais e o número / kill -l [NomeDoSinal] para obter o número em especifico 
+            man 7 singla para obter os sinais existentes e a sua funcionalidade 
+
+        SIGNAL     NUMBER       ACTION
+       SIGBUS       7        Bus error (bad memory access)
+       SIGCHLD      17      Ign     Child stopped or terminated
+
+       SIGCONT      18         Continue if stopped
+
+       SIGFPE       8    Floating-point exception
+       SIGHUP       1          Hangup detected on controlling terminal
+       SIGILL       4         Illegal Instruction
+
+       SIGINT       2    Interrupt from keyboard
+       SIGIO         29    I/O now possible (4.2BSD)
+
+       SIGKILL      9   Kill signal
+
+       SIGPIPE      13    Broken pipe: write to pipe with no
+
+       SIGPROF      27   Profiling timer expired
+       SIGPWR        30    Power failure (System V)
+       SIGQUIT      3    Quit from keyboard
+       SIGSEGV      11    Invalid memory reference
+
+       SIGSTOP      19         Stop process
+       SIGSYS       32        Bad system call (SVr4);
+       SIGTERM      15      Termination signal
+       SIGTRAP      5    Trace/breakpoint trap
+       SIGTSTP      20    Stop typed at terminal
+       SIGTTIN      21    Terminal input for background process
+       SIGTTOU     22   Terminal output for background process
+
+       SIGURG       23    Urgent condition on socket (4.2BSD)
+       SIGUSR1      10    User-defined signal 1
+       SIGUSR2     12        User-defined signal 2
+       SIGVTALRM   26    Virtual alarm clock (4.2BSD)
+       SIGWINCH       28     Window resize signal (4.3BSD, Sun)

@@ -1,0 +1,15 @@
+int spawn_childs(int n){
+    pid_t pai_id =getpid();
+    int id;
+
+    for(int i=0;i<n;i++){
+        pid_t pid = getpid();
+        if(pai_id == pid){
+            id=0;
+            if(fork()==0){
+            id=n;
+        }
+        }
+    }
+    return id;
+}

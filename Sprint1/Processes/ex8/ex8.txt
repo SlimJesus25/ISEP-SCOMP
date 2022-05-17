@@ -1,0 +1,11 @@
+a)
+PID TTY          TIME CMD
+    9 tty1     00:00:00 bash
+  143 tty1     00:01:07 ex8
+  144 tty1     00:00:00 ex8 <defunct>
+  149 tty1     00:00:00 ps
+
+Não, pois o segundo filho terminou e o pai esperou por ele ser terminado.
+
+b) Aparece com a indicação <defunct> pois é um processo zombie, como o pai continua o loop, ele não foi capaz de ler o status exit(0) indicado pelo o filho o que resulta no filho continuar na tabela de processos mesmo após ter terminado o seu código.
+

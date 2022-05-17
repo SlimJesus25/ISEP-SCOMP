@@ -1,0 +1,6 @@
+a) Não, o output não está ordenado.
+Não, não é possível garantir que vai ser sempre ordenado porque é imprevisivel saber qual dos filhos é que terá livre acesso ao CPU primeiro, ou seja, qual dos filhos será mais "rápido".
+Pela teoria deste código, seria sempre ordenado, mas na prática não é bem assim.
+
+No, the output is not sorted.
+No, it isn't possible to guarantee that it will be always sorted. It's unpredictable to know which process is going to be "faster" reaching the CPU.

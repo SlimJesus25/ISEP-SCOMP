@@ -1,0 +1,3 @@
+Only safe functions can be called in an adequate manner on a signal handler. This happens because unsafe functions (like printf(), for instance) can be interrupted by signals handlers.
+Being interrupted by signal handlers will call again printf() and due to that interruption this printf() may print inconsistent information.
+Thus, all functions mentioned in "man signal-safety" can be used.

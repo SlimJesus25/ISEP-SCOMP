@@ -1,0 +1,2 @@
+When a SIGINT is sent, the program from exercise 5d) is interrupted.
+However when a SIGQUIT is sent, the handler function handles and don't let the process end.
