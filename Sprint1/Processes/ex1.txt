@@ -1,5 +1,0 @@
-a) 1. x = 2
-   2. x = 2
-
-b) Não existe garantia, pois não existe uma ordem de execução garantida dos processos pai e filho, por isso pode acontecer de vermos o output da linha 11 do processo pai e depois output da linha 9 do filho ou output da linha 11 do filho e depois output da linha 9 do pai.
-

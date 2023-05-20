@@ -1,0 +1,1 @@
+O processo foi terminado através da receção do sinal SIGQUIT (combinação CTRL + \), por defeito este sinal termina o processo, porém é possível preparar o processo para tratar este tipo de sinais com uma receção diferente do comum.

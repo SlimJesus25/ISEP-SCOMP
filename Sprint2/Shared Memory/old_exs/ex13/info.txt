@@ -1,0 +1,10 @@
+/home/richard22/aacc/aa/random_info_1.txt speak
+/home/richard22/aacc/aa/random_info_2.txt do
+/home/richard22/aacc/aa/random_info_3.txt going
+/home/richard22/aacc/aa/random_info_4.txt is
+/home/richard22/aacc/aa/random_info_5.txt is
+/home/richard22/aacc/aa/random_info_6.txt in
+/home/richard22/aacc/aa/random_info_7.txt pain
+/home/richard22/aacc/aa/random_info_8.txt smoke
+/home/richard22/aacc/aa/random_info_9.txt make
+/home/richard22/aacc/aa/random_info_10.txt is

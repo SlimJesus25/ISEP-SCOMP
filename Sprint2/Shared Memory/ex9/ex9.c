@@ -1,101 +1,150 @@
-#include <stdio.h>
+#include <sys/types.h>
 #include <unistd.h>
-#include <sys/types.h>
+#include <stdio.h>
+#include <sys/syscall.h>
 #include <stdlib.h>
-#include <sys/wait.h>
 #include <string.h>
+#include <signal.h>
+#include <time.h>
+#include <sys/wait.h>
+#include <ctype.h>
 #include <fcntl.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
-#include <signal.h>
-#include <sys/time.h>
 
-/*
-   Implement a program to determine the biggest element of an array in a parallel/concurrent environment. The
-   parent process should:
-   • Create an array of 1000 integers, initializing it with random values between 0 and 1000;
-   • Create a shared memory area to store an array of 10 integers, each containing the local maximum of 100 values;
-   • Create 10 new processes;
-   • Wait until the 10 child processes finish the search for the local maximum;
-   • Determine the global maximum;
-   • Eliminate the shared memory area.
-   Each child process should:
-   • Calculate the largest element in the 100 positions;
-   • Write the value found in the position corresponding to the order number (0-9) in the array of local maximum.
-   */
+#define SHARED_MEMORY_NAME "/exercicio9"
+#define SHARED_MEM_SIZE 10
+#define CHILDREN 10
+#define NUMBER_OF_EXCHANGES 30
+#define ARRAY_SIZE 10
 
-#define ARRAY_SIZE 1000
-#define CHILD_N 10
 
 typedef struct{
-    int arr[10];
-    int stop;
-}test_t;
-
-int largest_number_in_array(int* array, int minimumIndex, int maximumIndex){
-    int largest_number = array[minimumIndex];
-    for(int j=minimumIndex+1; j<maximumIndex;j++){
-        if(largest_number < array[j])
-            largest_number = array[j];
-    }
-    return largest_number;
-}
+    int values[ARRAY_SIZE];
+    int values_size;
+    int valid;
+}prod_t;
 
 int main(){
 
-    int array[ARRAY_SIZE];
+    int fd, size = SHARED_MEM_SIZE*sizeof(prod_t);
+    prod_t *addr;
 
-    srand((unsigned) time(NULL));
+    /*
+                ## FLAGS ##
+        O_CREAT -> Cria, mas se já existir vai utilizar.
+        O_EXCL -> Cria (em conjunto com a flag O_CREAT) e dá erro se já existir.
+        O_TRUNC -> Elimina qualquer conteúdo existente na memória partilhada.
+        O_RDWR -> Abre para leitura e escrita.
+        O_RDONLY -> Abre para leitura.
 
-    for(int i=0;i<ARRAY_SIZE;i++)
-        array[i] = rand() % 1001;
+                ## MODES ##
+        Define permissões de leitura/escrita/execução para utilizadores/grupos/outros.
+        S_IRUSR -> Permissão de leitura. 
+        S_IWUSR -> Permissão de escrita.
+        S_IXUSR -> Permissão de execução.
+    */
 
-    int fd, data_size = sizeof(test_t);
-
-    test_t *ptr;
-
-    fd = shm_open("/ex9shrdmem", O_CREAT|O_EXCL|O_RDWR, S_IRUSR|S_IWUSR);
-    ftruncate(fd, data_size);
-    ptr = (test_t*)mmap(NULL, data_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
-    ptr->stop = 0;
-
-    int index = 0, min_index = 0;
-    int max_index = 100;
-    for(int i=0;i<CHILD_N;i++){
-        if(fork() == 0){
-            int local_maximum = largest_number_in_array(array, min_index, max_index);
-            printf("%d part\nLocal maximum: %d\n", (i+1), local_maximum);
-            ptr->arr[index] = local_maximum;
-            exit(EXIT_SUCCESS);
-        }
-        if(i == CHILD_N-1){
-            ptr->stop = 1;
-            break;
-        }
-        min_index = max_index;
-        max_index += 100;
-        index++;
-    }
-    while((ptr->stop) == 0);
-    int global_maximum = ptr->arr[0];
-    for(int i=1;i<CHILD_N;i++){
-        if(global_maximum < ptr->arr[i])
-            global_maximum = ptr->arr[i];
+    /* 
+        Cria e abre uma zona de memória partilhada. 
+            char* name -> Nome para dar à zona de memória partilhada (útil para ser utilizada por outros processos que não tenham qualquer relacionamento hierárquico).
+            int oflag -> Definições de criação da zona de memória partilhada.
+            mode_t mode -> Define permissões (estilo linux WRX).
+    */
+    fd = shm_open(SHARED_MEMORY_NAME, O_CREAT|O_EXCL|O_RDWR, S_IRUSR|S_IWUSR);
+    if(fd < 0){
+        perror("shm_open");
+        exit(EXIT_FAILURE);
     }
 
-    printf("Global maximum: %d\n", global_maximum);
+    /*
+        Define o tamanho da área e inicializa a zero.
+            int fd -> Descritor de ficheiros (Utilizar o retorno da função shm_open).
+            off_t length -> Tamanho, em bytes, da memória.
+    */
+    if(ftruncate(fd, size) < 0){
+        perror("ftruncate");
+        exit(EXIT_FAILURE);
+    }
 
-        shm_unlink("/ex9shrdmem");
+    /*
+        Mapeia a zona de memória partilhada no espaço do processo.
+            void *addr -> Define o endereço específico para armazenar (no processo) a zona de memória partilhada. Nota: Se for usado NULL, o SO decide automaticamente.
+            size_t length -> Define o tamanho necessário para ser usado.
+            int prot -> Flags de proteção. PROT_READ: ler apenas e PROT_READ|PROT_WRITE: ler e escrever. Nota: Deve ser coerente com o shm_open.
+            int flags -> Controla o comportamento do mmap(). Nota: No caso de memória partilhada, utiliza-se sempre MAP_SHARED para permitir outros processos verem mudanças.
+            int fd -> Descritor de ficheiros retornado por shm_open().
+            off_t offset -> Inicio do mapeamento na área da memória. Nota: Normalmente é zero para usar a memória toda desde o início.
+    */
+    addr = (prod_t*)mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+    if(addr == MAP_FAILED){
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }
 
-        if(munmap(ptr, data_size)){
-            perror("Error disconnecting the shared memory area!\n");
-            exit(EXIT_FAILURE);
+    // Definir como inválido.
+    addr->valid = 0;
+
+    addr->values_size = 0;
+
+    // Criação do consumidor e do produtor.
+    pid_t p = fork();
+    if(p < 0){
+        perror("fork");
+        exit(EXIT_FAILURE);
+    }
+
+    // DÚVIDA: É suposto não haver sincronização no "values_size" e ambos os processos acederem para atualizar o tamanho ou a solução é um "jogo de ping-pong"?
+
+    // Consumidor.
+    if(p == 0){
+        for(int i=0 % ARRAY_SIZE;i<NUMBER_OF_EXCHANGES;i++){
+            while(addr->values_size <= 0);
+            printf("Valor %dº: %d\n", (i+1)%ARRAY_SIZE, addr->values[i]);
         }
+        exit(EXIT_SUCCESS);
+    }
 
-        if(close(fd) == EXIT_FAILURE){
-            perror("Error closing file descriptor!\n");
-            exit(EXIT_FAILURE);
-        }
-    return 0;
+    srand(time(NULL));
+
+    // Produtor.
+    for(int i=0 % ARRAY_SIZE;i<NUMBER_OF_EXCHANGES;i++){
+        addr->values[i] = rand() % 100;
+        addr->values_size = addr->values_size + 1;
+    }
+
+    wait(NULL);
+
+
+        /*
+        Disconecta a zona de memória partilhada do espaço do processo.
+            void *addr -> Apontador para a zona de memória partilhada (retornado pelo mmap().
+            size_t length -> Tamanho, em bytes, da zona de memória partilhada.
+    */
+    if(munmap(addr, size) < 0){
+        perror("munmap");
+        exit(EXIT_FAILURE);
+    }
+
+    /*
+        Fecha o descritor de ficheiros retornado pelo shm_open().
+            int fd -> Descritor de ficheiros delvolvido pelo shm_open().
+    */
+    if(close(fd) < 0){
+        perror("close");
+        exit(EXIT_FAILURE);
+    }
+
+    /*
+        Remove a zona de memória partilhada do sistema de ficheiros. Marca-a para ser apagada, mal todos os processos que, eventualmente, a estejam a usar, fechem.
+        Nota: Não é instantâneo! Se algum processo estiver a usar a zona de memória, a memória vai ser marcada para ser apagada, mal consiga!
+            const char* name -> Nome da zona de memória partilhada.
+    */
+    if(shm_unlink(SHARED_MEMORY_NAME) < 0){
+        perror("shm_unlink");
+        exit(EXIT_FAILURE);
+    }
+    
+
+    exit(EXIT_SUCCESS);
 }

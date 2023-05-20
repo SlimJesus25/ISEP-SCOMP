@@ -1,122 +1,178 @@
-#include <stdio.h>
+#include <sys/types.h>
 #include <unistd.h>
-#include <sys/types.h>
+#include <stdio.h>
+#include <sys/syscall.h>
 #include <stdlib.h>
-#include <sys/wait.h>
 #include <string.h>
+#include <signal.h>
+#include <time.h>
+#include <sys/wait.h>
+#include <ctype.h>
 #include <fcntl.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
-#include <signal.h>
-#include <sys/time.h>
 #include <semaphore.h>
+#include <math.h>
+#include "info.h"
 
-#define INPUT_FILE "Numbers.txt"
-#define OUTPUT_FILE "Output.txt"
-#define AMOUNT 1600
-#define N_CHILD 8
-
-int main(){
-
-    sem_t *semaphores[N_CHILD];
+#define CHILDREN 10
 
 
-    if (
-    (semaphores[0] = sem_open("ex1sem1", O_CREAT, 0644,1)) == SEM_FAILED||
-    (semaphores[1] = sem_open("ex1sem2", O_CREAT, 0644,0)) == SEM_FAILED||
-    (semaphores[2] = sem_open("ex1sem3", O_CREAT, 0644,0)) == SEM_FAILED||
-    (semaphores[3] = sem_open("ex1sem4", O_CREAT, 0644,0)) == SEM_FAILED||
-    (semaphores[4] = sem_open("ex1sem5", O_CREAT, 0644,0)) == SEM_FAILED||
-    (semaphores[5] = sem_open("ex1sem6", O_CREAT, 0644,0)) == SEM_FAILED||
-    (semaphores[6] = sem_open("ex1sem7", O_CREAT, 0644,0)) == SEM_FAILED||
-    (semaphores[7] = sem_open("ex1sem8", O_CREAT, 0644,0)) == SEM_FAILED) 
-    {
-        perror("Error creating semaphore!");
+/*
+        ## Explicação ##
+    Foram utilizados 2 tipos de semáforos um de exclusão mútua e outro sincronização de processos.
+    A exclusão mútua serve para garantir que apenas um processo lia/escrevia na memória partilhada.
+    A sincronização é para colocar todos os processos no mesmo ponto de partida e assim evita resultados enviesados.
+    
+*/
+
+int main(int argc, char *argv[]){
+
+    srand(time(NULL));
+
+    // Semáforo de exclusão mútua para aceder à zona de memória partilhada.
+    sem_t* mutex = sem_open(MUTEX_NAME, O_CREAT, S_IRUSR|S_IWUSR, MUTEX_INITAL_VALUE);
+
+    // Semáforo "barrier" para obrigar todos os processos a ter o mesmo ponto de partida.
+    // Caso contrário, a memória partilhada ia ser preenchida, quase sempre, por apenas 1 processo.
+    sem_t* barrier[CHILDREN];
+
+    char* sem_name = (char*)malloc(10*sizeof(char));
+
+    for(int i=0;i<CHILDREN;i++){
+        int int_size;
+        if(i == 0){
+            int_size = 1;
+        }else{
+        // Variável vai ficar com o número de dígitos da iteração.
+            int_size = log10(i)+1;
+        }
+
+        int str_len = strlen(BARRIER_NAME)+1+int_size;
+        
+        sem_name = (char*)realloc(sem_name, str_len*sizeof(char));
+        snprintf(sem_name, str_len, "%s%d", BARRIER_NAME, i);
+        barrier[i] = sem_open(BARRIER_NAME, O_CREAT, S_IRUSR|S_IWUSR, SYNC_INITAL_VALUE);
+        if(barrier[i] == SEM_FAILED){
+            perror("sem_open");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    int fd, size = sizeof(info_t);
+    info_t *addr;
+
+    if(mutex == SEM_FAILED){
+        perror("sem_open");
         exit(EXIT_FAILURE);
     }
 
-    int num, i=0;
-
-    sem_t *sem; // Semaphore pointer.
-
-    // Creates semaphore and tests it is valid.
-    if((sem = sem_open("ex1sem", O_CREAT|O_EXCL, 0644, 1)) == SEM_FAILED){
-        perror("Error creating semaphore!");
+    // Cria e abre uma zona de memória partilhada.
+    fd = shm_open(SHARED_MEMORY_NAME, O_CREAT|O_RDWR, S_IRUSR|S_IWUSR);
+    if(fd < 0){
+        perror("shm_open");
         exit(EXIT_FAILURE);
     }
 
-    // Pointer to manage the input(read) and output(write) file.
-    FILE *inputFile, *outputFile;
+    // Define o tamanho da área e inicializa a zero.
+    if(ftruncate(fd, size) < 0){
+        perror("ftruncate");
+        exit(EXIT_FAILURE);
+    }
+
+    // Mapeia a zona de memória partilhada no espaço do processo.
+    addr = (info_t*)mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+    if(addr == MAP_FAILED){
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }
 
     pid_t p;
-
-    int min, max;
-
-    // Cycle that will create n new processes.
-    for(i=0;i<N_CHILD;i++){
+    int id = 0;
+    for(int id=0;id<CHILDREN;id++){
         p = fork();
-        min = 200*i;
-        max = 200*(i+1);
-
-        if(p == 0){
-        sem_wait(semaphores[i]);
-        //printf("Started: Child %d | PID %d\n", i, getpid());
-
-        inputFile = fopen(INPUT_FILE, "r");
-        if(inputFile == NULL){
-            perror("Error opening input file!");
-            return EXIT_FAILURE;
-        }
-
-        outputFile = fopen(OUTPUT_FILE, "a");
-        printf("Filho %d a ler de %d a %d\n", i, min, max);
-        for(int j=min;j<max;j++){
-            fscanf(inputFile, "%d", &num);
-            printf("NUM: %d",num);
-            fprintf(outputFile, "%d\n", num);
-        }
-
-        fclose(inputFile);
-        fclose(outputFile);
-        if(i<7){
-         sem_post(semaphores[i+1]);   
+        if(p < 0){
+            perror("fork");
+            exit(EXIT_FAILURE);
         }
         
-        //printf("Finished: Child %d | PID %d\n", i, getpid());
-        exit(EXIT_SUCCESS);
-    }
-    }
-
-    if(p > 0){
-        for(i=0;i<8;i++)
-            wait(NULL);
+        if(p == 0){
+            break;
+        }
     }
 
-    outputFile = fopen(OUTPUT_FILE, "r");
+    if(p == 0){
+        for(int i=0;i<CHILDREN;i++){
+            sem_post(barrier[id]);
+        }
 
-    if(outputFile == NULL){
-        perror("Error opening output file!");
-        return EXIT_FAILURE;
+        for(int i=0;i<CHILDREN;i++){
+            sem_wait(barrier[i]);
+        }
+
+        if(p == 0){
+            while(0 == 0){
+                sem_wait(mutex);
+
+                // Na ocasião de já estar cheio, vai incrementar o semáforo (para não bloquear outros processos) e sair do loop. 
+                if(addr->iteration == STRING_QUANTITY){
+                    sem_post(mutex);
+                    break;
+                }
+
+                char txt[STRING_CHARACTER_NUMBER];
+                snprintf(txt, STRING_CHARACTER_NUMBER, "I'm the Father - with PID %d", getpid());
+
+                strcpy(addr->array_strings[addr->iteration], txt);
+
+                addr->iteration = addr->iteration + 1;
+
+                sem_post(mutex);
+                sleep(1);
+            }
+            exit(EXIT_SUCCESS);
+        }
     }
 
-    while(fscanf(outputFile, "%d", &num) != EOF)
-        //printf("%d\n", num);
+    for(int i=0;i<CHILDREN;i++){
+        wait(NULL);
+    }
 
-    fclose(outputFile);
+    // Disconecta a zona de memória partilhada do espaço do processo.
+    if(munmap(addr, size) < 0){
+        perror("munmap");
+        exit(EXIT_FAILURE);
+    }
 
-    sem_close(sem);
-    sem_unlink("ex1sem");
+    // Fecha o descritor de ficheiros retornado pelo shm_open().
+    if(close(fd) < 0){
+        perror("close");
+        exit(EXIT_FAILURE);
+    }
+    
+    for(int i=0;i<CHILDREN;i++){
+        int int_size;
+        if(i == 0){
+            int_size = 1;
+        }else{
+            int_size = log10(i)+1;
+        }
 
-    sem_unlink("ex1sem1");
-    sem_unlink("ex1sem2");
-    sem_unlink("ex1sem3");
-    sem_unlink("ex1sem4");
-    sem_unlink("ex1sem5");
-    sem_unlink("ex1sem6");
-    sem_unlink("ex1sem7");
-    sem_unlink("ex1sem8");
+        int str_len = strlen(BARRIER_NAME)+1+int_size;
+        
+        char sem_name[str_len];
+        snprintf(sem_name, str_len, "%s%d", BARRIER_NAME, i);
 
+        if(sem_unlink(sem_name) < 0){
+            perror("sem_unlink");
+            exit(EXIT_FAILURE);
+        }
+    }
 
-    return EXIT_SUCCESS;
+    if(sem_unlink(MUTEX_NAME) < 0){
+        perror("sem_unlink");
+        exit(EXIT_FAILURE);
+    }
+    
+    exit(EXIT_SUCCESS);
 }

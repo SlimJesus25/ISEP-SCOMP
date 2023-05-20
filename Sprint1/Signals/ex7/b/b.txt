@@ -1,0 +1,19 @@
+A função printf é indesejada dentro de uma função signal handler exatamente pelos motivos mencionados na alínea anterior.
+ Como se trata de uma função não reentrante, não é aconselhável + não é seguro.
+
+Nota: Todas as funções da bibiloteca stdio são inseguras para se chamar dentro deste tipo de função.
+
+A função write é uma função segura e aconselhável para usar neste tipo de situações e o motivo é ser reentrante.
+
+Ser reentrante significa que se existir uma interrupação aquando a execução da função, é tratada tal interrupção e
+retorna ao ponto que estava a executar sem haver nenhum impedimento na sua execução antes de ser interrompido.
+
+Nota: No caso da função write, como é uma system call não existe uma interrupção, a instrução é terminada e depois, trata-se do sinal obtido.
+
+Alguns pontos que definem uma função reentrante são:
+ 1. Não deve usar dados globais nem static. Não existem restrições, mas é geralmente não aconselhável, pois a interrupção
+    pode alterar valores globais fazendo que no retorno da execução da função os resultados sejam enviesados.
+ 2. Não deve modificar o seu próprio código. Isto é importante porque a função deve manter-se sempre igual durante todo
+    o processo (execução normal > interrupção > execução normal), porém pode ser permitido na ocasião da interrupção criar
+    uma cópia local da função reentrante.
+ 3. Não deve chamar outras funções não reentrantes.

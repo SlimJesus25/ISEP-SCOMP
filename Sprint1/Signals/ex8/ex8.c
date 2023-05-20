@@ -1,54 +1,33 @@
-#include <stdio.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
-#include <sys/wait.h>
 
-volatile sig_atomic_t counter = 5;
+#define SIGNAL SIGUSR1
 
-void handle_child(int signo) {
-	counter--;
-	printf("%d child proccess executing \n", counter);
+void handle_USR1(int signo, siginfo_t *sinfo, void *context){
+    char buffer[200];
+    pid_t p = sinfo->si_pid;
+    snprintf(buffer, 100, "Captured a SIGUSR1 sent by the process with PID %d\n", p);
+   
+    int buffer_length = strlen(buffer);
+    write(STDOUT_FILENO, buffer, buffer_length);
 }
 
-int main()
-{
-	struct sigaction act;
-	memset(&act, 0, sizeof(struct sigaction));
-	act.sa_flags = SA_NOCLDWAIT;
-	act.sa_handler = handle_child;
-	sigaction(SIGCHLD, &act, NULL);
-	
-	
-	pid_t pid;
-	
-	for(int i=0;i<5;i++){
+int main(){
 
-		pid=fork();
-		
-		if(pid==0){
-			for(int j=i*200;j<=((i+5)*200);j++){
-				printf("Result: %d\n", j);
-				sleep(1);
-			}
-			kill(getppid(),SIGCHLD);
-			exit(1);
-			
-		}else{
-			pause();
-			if(counter==0){
-				printf("Cya.");
-			}
-		}
-		}
+    struct sigaction act;
 
-		for(int k=0;k<5;k++){
-			wait(NULL);
-		}
-	}
-	
+    memset(&act, 0, sizeof(struct sigaction));
+    sigemptyset(&act.sa_mask);
+    act.sa_sigaction = handle_USR1;
+    act.sa_flags = SA_SIGINFO;
 
+    sigaction(SIGUSR1, &act, NULL);
 
+    sleep(15);
 
+    return 0;
+}

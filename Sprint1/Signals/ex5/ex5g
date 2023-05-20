@@ -1,1 +1,0 @@
-Like it was said in the 3e), only safe functions must be used on a signal handler function.

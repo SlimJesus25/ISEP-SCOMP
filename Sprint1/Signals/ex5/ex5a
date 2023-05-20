@@ -1,1 +1,0 @@
-Like we can see in ex5a.png, the program has been interrupted after CTRL-C. CTRL-C sent an interruption signal and the program wasn't coded to handle that specific signal.When SIGINT is received, the implicit action is interrupt the program.

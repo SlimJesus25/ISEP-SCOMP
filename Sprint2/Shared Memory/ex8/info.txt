@@ -1,0 +1,10 @@
+./random_info_1.txt speak
+./random_info_2.txt do
+./random_info_3.txt going
+./random_info_4.txt is
+./random_info_5.txt is
+./random_info_6.txt in
+./random_info_7.txt pain
+./random_info_8.txt smoke
+./random_info_9.txt make
+./random_info_10.txt is

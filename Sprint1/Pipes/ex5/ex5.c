@@ -1,74 +1,86 @@
-#include <stdio.h>
-#include <unistd.h>
 #include <sys/types.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <sys/syscall.h>
 #include <stdlib.h>
-#include <sys/wait.h>
 #include <string.h>
+#include <signal.h>
+#include <time.h>
+#include <sys/wait.h>
+#include <ctype.h>
 
 #define MAX_SIZE 256
-
-void server_converting_characters(char *str) {
-
-	for(int i = 0; i < strlen(str); i++) {
-		if(str[i] > 96 && str[i] < 123)
-			*(str+i) -= 32;
-		else if(str[i] > 64 && str[i] < 91)
-		    *(str+i) += 32;
-    }
-}
+#define ACKNOWLEDGE "ACK"
 
 int main(){
-
-    char txt[MAX_SIZE];
-
-    int fd1[2], fd2[2];
-
-    if(pipe(fd1) == -1){
-        perror("Up pipe failed!");
-        return 1;
-    }
-    if(pipe(fd2) == -1){
-        perror("Down pipe failed!");
-        return 1;
+    
+    int up[2], down[2];
+    
+    if(pipe(up) < 0){
+        perror("Pipe1");
+        exit(EXIT_FAILURE);
     }
 
+    if(pipe(down) < 0){
+        perror("Pipe2");
+        exit(EXIT_FAILURE);
+    }
+    
     pid_t p = fork();
-
     if(p < 0){
-        perror("Error creating child process!");
-        return -1;
+        perror("Fork");
+        exit(EXIT_FAILURE);
     }
-    if(p > 0){ // Server Side
+    
+    // Processo "cliente".
+    if(p == 0){
+        char message_to_send[MAX_SIZE];
+        char received_message[MAX_SIZE];
 
-        read(fd1[0], txt, MAX_SIZE);
-        //printf("\nValue received by txt: %s", txt);
-        close(fd1[0]);
-        // Server side is waiting for the client to send some text.
-        // strcpy(write_msg, server_converting_characters(read_msg));
+        close(up[0]);
+        close(down[1]);
 
-        char* msg = txt;
-        server_converting_characters(msg);
+        printf("Mensagem a enviar ao servidor: ");
+        scanf("%s", message_to_send);
+        
+        write(up[1], message_to_send, MAX_SIZE);
 
-        //strcpy(txt, server_converting_characters(msg));
-        //printf("\nValue that txt contains: %s", msg);
-        write(fd2[1], msg, MAX_SIZE * sizeof(char));
-        close(fd2[1]);
+        read(down[0], received_message, MAX_SIZE);
 
-    }else{ // Client Side
+        printf("Mensagem recebida do servidor: %s", received_message);
 
-        char msg[10] = "sCoMp";
-
-        printf("\n\nOriginal word: %s\n", msg);
-        write(fd1[1], msg, MAX_SIZE * sizeof(char));
-        close(fd1[1]);
-
-        read(fd2[0], txt, MAX_SIZE * sizeof(char));
-        close(fd2[0]);
-
-        printf("\n\nNew word: %s\n", txt);
-
+        exit(EXIT_SUCCESS);
     }
 
-    return 0;
+    // Processo "Servidor".
+    if(p > 0){
+        char message_to_send[MAX_SIZE];
+        char received_message[MAX_SIZE];
 
+        close(up[1]);
+        close(down[0]);
+
+        read(up[0], received_message, MAX_SIZE);
+
+        int i=0;
+        while(received_message[i] != '\0'){
+            if(isupper(received_message[i]) > 0){
+                received_message[i++] = tolower(received_message[i]);
+            }else if(islower(received_message[i]) > 0){
+                received_message[i++] = toupper(received_message[i]);
+            }else{
+                i++;
+            }
+        }
+
+        write(down[1], received_message, MAX_SIZE);
+
+    }
+    
+    int status;
+
+    p = wait(&status);
+    printf("\n\n\tChild status\nPID: %d\nExit value: %d", p, WEXITSTATUS(status));
+
+    exit(EXIT_SUCCESS);
 }

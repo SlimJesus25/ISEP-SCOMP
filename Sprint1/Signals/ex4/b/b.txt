@@ -1,0 +1,17 @@
+A função sigaction examina e altera a ação para um sinal.
+Os parâmetros da função são:
+ - Retorno | Descrição | Valores Possíveis
+ - int sig | Sinal a tratar quando recebido. | Valor inteiro.
+ - const struct *restrict act | Ponteiro para struct (com as especificações mais à frente mencionadas) que especifica todos os comportamentos a ter com o sinal especificado. | Struct do tipo mencionado.
+ - struct *restrict oact | Ponteiro que armazena detalhes do parâmetro anterior. | NULL ou struct do tipo mencionado.
+
+A função sigaction pode variar de arquitetura para arquitetura, porém os parâmetros da struct têm que obedecer a POSIX e são:
+ - Retorno | Descrição | Valores Possíveis
+ - void(*)(int)sa_handler | Ponteiro para uma função que vai correr aquando capturado um sinal ou um dos macros SIG_IGN/SIG_DFL. | SIG_DFL, SIG_IGN ou função do tipo mencionado.
+ - sigset_t sa_mask | Conjunto de sinais para ser bloqueados durante a execução da sa_handler (obviamente, não vai bloquear sinais não bloqueantes como por exemplo SIGKILL). | NULL, ou struct do tipo mencionado.  Nota: É importante referir as funções sigemptyset e sigfillset que esvaziam e preenchem, respetivamente, um conjunto de sinais. Sigaddset e sigdelset também são funções que combinam bem com sigemptyset e sigfillset, respetivamente.
+ - int sa_flags | Flags especiais que alteram o comportamento do sinal. | Valor Inteiro.
+ - void(*)(int, siginfo_t *, void *) sa_sigaction | Ponteiro para uma função que vai tratar do sinal capturado (similar ao campo sa_handler, porém mais poderoso. Tem como por exemplo capacidade de saber o sinal enviado e o PID do processo que enviou). | Uma função do tipo mencionado. Nota: Requer que a flag SA_SIGINFO esteja levantada.
+
+ Nota: Os parâmetros sa_handler e sa_sigaction não devem ser utilizados simultanemente.
+
+ A função retorna 0 em caso de sucesso e -1 em caso de erro.

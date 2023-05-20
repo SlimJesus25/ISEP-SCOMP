@@ -1,0 +1,21 @@
+Sinal | Número | Descrição
+SIGHUP | 1 | Desliga o processo.
+SIGINT | 2 | Fim do processo. Interrupção gerada por CTRL + C.
+SIGQUIT | 3 | Sai do processo. Este sinal é gerado por CTRL + \.
+SIGILL | 4 | Instrução ilegal. 
+SIGABRT |6 | Aborta o processo.
+SIGTRAP | 5 | Ocasião de armadilha/exceção.
+SIGFPE | 8 | Ocasião de erro numa conta artimética.
+SIGKILL | 9 | Termina o processo.
+SIGSEGV | 11 | Acesso a uma zona de memória inválida.
+SIGPIPE | 13 | Escrever para um pipe sem leitores.
+SIGALRM | 14 | Sinal de alarme.
+SIGTERM | 15 | Sinal de terminação.
+SIGUSR1 | 10 | Sinal definido pelo utilizador 1.
+SIGUSR2 | 12 | Sinal definido pelo utilizador 2.
+SIGCHLD | 17 | O filho terminou/parou.
+SIGCONT | 18 | O processo continua se tiver parado.
+SIGSTOP | 19 | Para o processo.
+SIGTSTP | 20 | Stop escrito pelo terminal.
+SIGTTIN | 21 | Input do terminal para um processo em background.
+SIGTTOU | 22 | Output do terminal para um processo em backgroud.

@@ -1,1 +1,0 @@
-After pressing CTRL-\, a message saying "Quit (Core Dumped)" appeared. The program ended because it was not meant to handle a SIGQUIT signal, thus this CTRL-\ finished the program.

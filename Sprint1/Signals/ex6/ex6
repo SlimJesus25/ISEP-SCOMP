@@ -1,0 +1,5 @@
+Não é seguro usar este tipo de variáveis numa função de tratamento de sinais.
+O uso de variáveis static, globais leva a inconsistência de dados devido a vários acessos simultâneos, ou seja, pode levar a resultados imprevisíveis.
+Porém existe a possibilidade de utilizar formas de assegurar mais segurança como:
+ * Definir a variável global volatile (indica ao compilador que a variável pode mudar o seu valor de forma assíncrona);
+ * Definir a variável (caso seja do tipo int) como sig_atomic_t para ser acessado como uma entidade atómica mesmo na presença de interrupções assíncronas. É carregada e armazenada em memória numa só instrução. 

@@ -1,62 +1,60 @@
-#include <stdio.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <sys/syscall.h>
 #include <stdlib.h>
-#include <signal.h>
 #include <string.h>
+#include <signal.h>
 
-#define SIZE_ARRAY 5
+#define SIGNAL SIGUSR1
 
-int i;
+void handle_USR1(int signo, siginfo_t *sinfo, void *context){
+    char buffer[50];
 
-typedef struct{
-    char cmd[32];
-    int tempo;
-} comando;
-
-comando *ptr;
-
-void handler_child(){
-    char txt[100];
-	write(STDOUT_FILENO,"Execution ended!", 17);
+    snprintf(buffer, 75, "SIGUSR1 signal captured”\n");
+   
+    int buffer_length = strlen(buffer);
+    write(STDOUT_FILENO, buffer, buffer_length);
 }
 
-void handler_alarm(){
-    printf("PID: %d", getpid());
-    kill(getpid(), SIGKILL);
-    char txt[100];
-    snprintf(txt, 100, "The command %s didn’t end in its allowed time!", ptr->cmd);
-    write(STDOUT_FILENO, txt, strlen(txt));
+void blocked_signals(const sigset_t *set){
+    sigfillset(set);
+    sigprocmask(SIG_BLOCK, NULL, NULL);
+    printf("\tWhen SIGUSR1 is received, these signals are blocked\n\n");
+    for(int i=1;i<22;i++){
+        int blocked = sigismember(set, i);
+        if(blocked == 1){
+            printf("Signal %d is blocked\n", i);
+        }else{
+            printf("Signal %d is NOT blocked\n", i);
+        }
+    }
+    sigprocmask(SIG_UNBLOCK, NULL, NULL);
+
+    printf("\nNote: There are 2 exceptions (SIGKILL and SIGSTOP) that are unstoppable!");
 }
+
+// Neste exercício foram usadas as seguintes funções:
+// - sigfillset para atrasar todos os sinais, que forem "atrasáveis", durante a execução do handler;
+// - sigismember para verificar se, consoante uma mascara passada por parâmetro, um sinal está definido para atrasar ou não;
+// - sigprocmask para examinar, mudar ou ambos o sinal da máscara do processo que invoca esta função.
 
 int main(){
 
-    struct sigaction act, act2;
+    struct sigaction act;
+
     memset(&act, 0, sizeof(act));
+    act.sa_sigaction = handle_USR1;
+    //sigfillset(&act.sa_mask);
+    //sigprocmask(SIG_BLOCK, &act.sa_mask, NULL); -> Bloqueia todos os sinais (bloqueáveis) em todo o scope do programa até ser chamada novamente com o 1º parâmetro a SIG_UNBLOCK.
 
-    act.sa_handler = handler_child;
-    act2.sa_handler = handler_alarm;
+    sigaction(SIGNAL, &act, NULL);
 
-    sigaction(SIGCHLD, &act, NULL);
-    sigaction(SIGALRM, &act2, NULL);
+    blocked_signals(&act.sa_mask);
 
-    comando arr[] = {{"./a", 10}, {"./b", 5}, {"./c", 8}, {"./d", 4}};
-
-    pid_t p = fork();
-    if(p < 0){
-        perror("Error creating process!");
-        return 1;
-    }
-    if(p == 0){
-        for(i=0;i<sizeof(arr)/sizeof(comando);i++){
-            ptr = &arr[i];
-            printf("%d seconds to execute %s", arr[i].tempo, arr[i].cmd);
-            execlp(arr[i].cmd, arr[i].cmd, (char*)NULL);
-            exit(0);
-        }
-    }else{
-        alarm(arr[i].tempo);
-        wait(NULL);
+    for(;;){
+        printf("Im working\n");
+        sleep(1);
     }
 
     return 0;

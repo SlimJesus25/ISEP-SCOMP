@@ -1,38 +1,76 @@
-#include <stdio.h>
+#include <sys/types.h>
 #include <unistd.h>
-#include <sys/types.h>
+#include <stdio.h>
+#include <sys/syscall.h>
 #include <stdlib.h>
-#include <sys/wait.h>
 #include <string.h>
+#include <signal.h>
+#include <time.h>
+#include <sys/wait.h>
+#include <ctype.h>
 #include <fcntl.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
-#include <signal.h>
-#include <sys/time.h>
 #include <semaphore.h>
 #include <math.h>
+#include "../../semaphore_utils.h"
 
-int main(){
+#define SYNC "/sync5"
+#define SEMAPHORE_QUANTITY 3
+#define CHILDREN 3
+#define FIRST 0
 
-    sem_t *sem; // Semaphore pointer.
+void print_and_post(char info[6][25], int iteration, sem_t* syncs[CHILDREN]){
+    sem_wait(syncs[iteration]);
+    printf("%s", info[iteration]);
+    fflush(stdout);
+    sem_post(syncs[(iteration+1)%CHILDREN]);
+    
+    sem_wait(syncs[iteration]);
+    printf("%s", info[iteration+3]);
+    fflush(stdout);
+    sem_post(syncs[(iteration+1)%CHILDREN]);
+}
 
-    // Creates semaphore and tests it is valid.
-    if((sem = sem_open("ex5sem", O_CREAT, 0644, 0)) == SEM_FAILED){
-        perror("Error creating semaphore!");
-        exit(EXIT_FAILURE);
+
+/*
+        ## Explicação ##
+    A estratégia utilizada para resolver este exercício foi utilizar 3 semáforos (mínimos possíveis) de 
+    sincronização entre processos (valor inicial igual a zero).
+*/
+
+int main(int argc, char *argv[]){
+
+    char info[6][25] = {"Sistemas ", "de", " Computadores - ",
+     "a ", "melhor ", "disciplina!"};
+
+    sem_t* syncs[CHILDREN];
+    create_semaphores(syncs, CHILDREN, SYNC, SYNCHRONIZATION_INITAL_VALUE);
+    
+    sem_post(syncs[FIRST]);
+    //print_and_post(info, 0, syncs);
+
+
+    for(int i=0;i<CHILDREN;i++){
+        pid_t p = fork();
+        if(p < 0){
+            perror("fork");
+            exit(EXIT_FAILURE);
+        }
+
+        if(p == 0){
+            print_and_post(info, i, syncs);
+            exit(EXIT_SUCCESS);
+        }
     }
 
-    if(fork() == 0){
-        printf("I'm the child\n");
-        sem_post(sem);
-    }else{
-        sem_wait(sem);
-        printf("I'm the father\n");
+    for(int i=0;i<CHILDREN;i++){
+        wait(NULL);
     }
 
-    sem_close(sem);
-    sem_unlink("ex5sem");
+    printf("\n");
+    
+    unlink_semaphores(SYNC, CHILDREN);
 
-    return EXIT_SUCCESS;
+    exit(EXIT_SUCCESS);
 }

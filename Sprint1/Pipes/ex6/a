@@ -1,0 +1,2 @@
+Não existe necessidade de um mecanismo de sincronização porque o pipe é um buffer partilhado dentro do kernel, com descritores de ficheiros distintos para ler e escrever.
+Se vários processos partilham estes descritores, cabe ao kernel (scheduler) decidir quem é que deve ler/escrever bytes para o pipe.

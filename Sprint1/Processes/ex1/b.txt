@@ -1,0 +1,1 @@
+Não, a linha 9 não vai ser imprimida, garatindamente, antes da linha 11. Existe a possibilidade do processador atribuir acesso primeiro ao processo pai, consecutivamente, resultando assim nos prints do processo pai aparecem primeiro que os do processo filho.

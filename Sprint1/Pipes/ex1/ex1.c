@@ -1,43 +1,45 @@
-#include <stdio.h>
-#include <unistd.h>
 #include <sys/types.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <sys/syscall.h>
 #include <stdlib.h>
+#include <string.h>
+#include <signal.h>
+#include <time.h>
 #include <sys/wait.h>
-/*
-Write a program that creates a child process and establishes with it a communication channel through a pipe. The
-parent process starts by printing its PID and then sends it to its child through the pipe. The child process should
-read the parent ́s PID from the pipe and print it.
-*/
 
-#define BUFFER_SIZE 1000;
+#define MAX_SIZE 20
 
 int main(){
-
-    int read_msg;
-    int write_msg;
+    
     int fd[2];
-
-    if(pipe(fd) == -1){
-        perror("Pipe failed!");
-        return 1;
+    if(pipe(fd) < 0){
+        perror("Pipe");
+        exit(EXIT_FAILURE);
     }
-
-    if(fork() > 0){
-        write_msg = getpid();
-        printf("\n[PARENT] PID: %d", write_msg);
-        close(fd[0]);
-        write(fd[1], &write_msg, sizeof(write_msg));
-        close(fd[1]);
-    }else{
-        close(fd[1]);
-        read(fd[0], &read_msg, sizeof(ssize_t));
-        close(fd[0]);
-        printf("\n[CHILD] PID received from the pipe: %d\n", read_msg);
-        exit(0);
+    
+    pid_t p = fork();
+    if(p < 0){
+        perror("Fork");
+        exit(EXIT_FAILURE);
     }
-
+    if(p == 0){
+        close(fd[1]);
+        char msg[MAX_SIZE];
+        read(fd[0], msg, MAX_SIZE);
+        printf("[CHILD] Message received: %s", msg);
+        close(fd[0]);
+        exit(EXIT_SUCCESS);
+    }
+    if(p > 0){
+        close(fd[0]);
+        char msg[MAX_SIZE];
+        snprintf(msg, MAX_SIZE, "My PID %d", getpid());
+        write(fd[1], msg, MAX_SIZE);
+        close(fd[1]);
+    }
+    
     wait(NULL);
 
-    return 0;
-
+    exit(EXIT_SUCCESS);
 }

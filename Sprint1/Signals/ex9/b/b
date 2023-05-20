@@ -1,0 +1,1 @@
+O programa recebeu o sinal SIGINT e como tal, foi interrompido. Por defeito este sinal interrompe um processo, no caso de um programa estar preparado para receber este sinal, pode não terminar.

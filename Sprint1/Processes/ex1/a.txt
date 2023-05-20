@@ -1,0 +1,30 @@
+O output pode (ou não) variar, ou seja, não é garantido que um processo vá ser escalonado primeiro que o outro. Conclui-se então que o output pode ser, como por exemplo:
+
+1.x = 2
+2.x = 0
+3. 1234; x = 0
+3. 0; x = 2
+
+Onde o processo filho vai imprimir primeiro o valor de x, mas o pai imprime o terceiro ponto primeiro.
+
+1.x = 0
+2.x = 2
+3. 1234; x = 0
+3. 0; x = 2
+
+Onde o processo pai imprime primeiro o valor de x e também imprime primeiro o terceiro ponto.
+
+1.x = 0
+2.x = 2
+3. 1234; x = 0
+
+Onde o processo pai imprime ambos os prints que é suposto, porém o filho só imprime o seu primeiro printf.
+
+1.x = 0
+3. 1234; x = 0
+2.x = 2
+3. 0; x = 2
+
+Onde o processo pai imprime as suas tarefas primeiro que o processo filho.
+
+Conclui-se que não há controlo da ordem do escalonamento do processos, logo, não há garantia do output.

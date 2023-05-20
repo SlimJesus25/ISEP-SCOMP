@@ -1,103 +1,113 @@
-#include <stdio.h>
-#include <unistd.h>
 #include <sys/types.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <sys/syscall.h>
 #include <stdlib.h>
-#include <sys/wait.h>
 #include <string.h>
+#include <signal.h>
+#include <time.h>
+#include <sys/wait.h>
+#include <ctype.h>
 
-/*
-Given two integer arrays vec1 and vec2, with 1000 elements each, write a program that creates 5 child processes
-to concurrently sum the two arrays. Each child should calculate vec1[i] + vec2[i] on 200 elements, sending all those
-values to its parent. Ensure that each child computes different positions of the arrays. The parent process should
-wait for all the 1000 values and then store them in a result array, in the correct position. Use 5 pipes, one for each
-child.
-*/
+#define MAX_SIZE 10
+#define CHILDREN 5
 
-#define SIZE 1000
+void sum_arrays(int* array_sum, int* array_one, int* array_two, int min_lim, int max_lim){
 
-void sum_vectors(int *vec1, int *vec2, int min, int max){ // This function will make vec1 with the sum of both.
-    for(int i=min;i<max;i++)
-        vec1[i] += vec2[i];
+    // The tmp array have 1/CHILDREN size because there's no need to send more data that what we are working here.
+    int k=0;
+    for(int i=min_lim;i<max_lim;i++){
+        array_sum[k++] = array_one[i] + array_two[i];
+    }
+}
+
+void assign_values_to_array(int* original, int* new_values, int min_lim, int max_lim){
+    int k=0;
+    for(int i=min_lim;i<max_lim;i++){
+        original[i] = new_values[k++];
+    }
+}
+
+void generate_random_integer_array(int* array, int max_size){
+
+    for (int i = 0; i < max_size; i++)
+        array[i] = rand () % 1000;
+}
+
+void print_array(int* array, int size){
+    for(int i=0;i<size;i++){
+        printf("%d|", array[i]);
+    }
+    printf("\n");
 }
 
 int main(){
+    
+    time_t t;
+    srand ((unsigned) time (&t));
 
-        int fd[5][2]; // File Descriptor with 5 lines.
+    int vec1[MAX_SIZE], vec2[MAX_SIZE], vec3[MAX_SIZE];
 
-        int vec1[SIZE], vec2[SIZE];
+    // Generating random values to vec1 and vec2...
+    generate_random_integer_array(vec1, MAX_SIZE);
+    generate_random_integer_array(vec2, MAX_SIZE);
+    printf("\n\tArray 1\n");
+    print_array(vec1, MAX_SIZE);
+    printf("\n\tArray 2\n");
+    print_array(vec2, MAX_SIZE);
 
-        int i;
+    int min=0, max=0;
+    int fd[CHILDREN][2];
 
-        time_t t1;
+    for(int i=0;i<CHILDREN;i++){
 
-        srand((unsigned) time (&t1));
-
-        for(i=0;i<SIZE;i++){ // Fills both vectors with random numbers between [0, 200]
-            vec1[i] = rand() % 200;
-            vec2[i] = rand() % 200;
-        }
-
-        // For confirmation reasons, we will print 20 numbers from this vector to compare with the final vector.
-        printf("%d + %d\n", vec1[10], vec2[10]);
-
-        for(i=0;i<5;i++){ // Creation of 5 pipes
-            if(pipe(fd[i]) == -1){
-                perror("Pipe failed");
-                return 1;
-            }
+        if(pipe(fd[i]) < 0){
+            perror("Pipe");
+            exit(EXIT_FAILURE);
         }
 
         pid_t p = fork();
-
         if(p < 0){
-            perror("Failed creating child");
-            return 1;
+        perror("Fork");
+        exit(EXIT_FAILURE);
         }
 
-        for(i=0;i<5;i++){
-        /*
-        The code inside of this repetition structure will produce 5 times,
-        so that, 5 childs will be created and terminated in the final of their mission.
-        */
-            if(fork() == 0){ // If it is a child process, enters here and executes his mission.
-                close(fd[i][0]);
-
-                sum_vectors(vec1, vec2, i*200, (i+1)*200);
-
-                write(fd[i][1], vec1, SIZE/5);
-                close(fd[i][1]);
-
-                exit(1);
-            }
-            /* Meanwhile child processes are doing their stuff, parent process is creating other childs processes and when all childs are created,
-               parent process will advance in the code waiting for something to read from each child process.
-             */
-        }
-
-        int sum_vec[5][SIZE/5];
-
-        for(i=0;i<5;i++){
-            close(fd[i][1]);
-            read(fd[i][0], sum_vec[i], SIZE/5);
+        if(p == 0){
             close(fd[i][0]);
+
+            min = i*(MAX_SIZE/CHILDREN);
+            max = (i+1)*(MAX_SIZE/CHILDREN);
+
+            int* tmp = calloc(MAX_SIZE/CHILDREN, sizeof(int));
+            sum_arrays(tmp, vec1, vec2, min, max);
+            write(fd[i][1], tmp, MAX_SIZE/CHILDREN*sizeof(int));
+
+            close(fd[i][1]);
+            exit(EXIT_SUCCESS);
         }
-        printf("\n\nResult\n");
+    }
 
-        int sum_vec_od[SIZE], z=0;
+    for(int i=0;i<CHILDREN;i++){
+        close(fd[i][1]);
+    }
 
-        for(int x=0;x<5;x++){
-            for(int y=0;y<SIZE/5;y++)
-                sum_vec_od[z++] = sum_vec[x][y];
-        }
+    int* tmp = calloc(MAX_SIZE, sizeof(int));
 
-        printf("%d\n", sum_vec_od[10]);
+    for(int i=0;i<CHILDREN;i++){
+        min = i*(MAX_SIZE/CHILDREN);
+        max = (i+1)*(MAX_SIZE/CHILDREN);
 
-        /*for(i=0;i<SIZE;i++){
-            if(sum_vec_od[i] != vec1[i]+vec2[i]){
-                printf("Invalid");
+        read(fd[i][0], tmp, MAX_SIZE/CHILDREN*sizeof(int));
+        assign_values_to_array(vec3, tmp, min, max);
+        memset(tmp, 0, MAX_SIZE*sizeof(int));
+    }
+    close(fd[0]);
 
-            }
-        }*/
+    printf("\n\tResult array\n");
+    print_array(vec3, MAX_SIZE);
 
-    return 0;
+
+
+
+    exit(EXIT_SUCCESS);
 }

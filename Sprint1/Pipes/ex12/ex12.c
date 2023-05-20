@@ -1,86 +1,123 @@
+#include <sys/types.h>
+#include <unistd.h>
 #include <stdio.h>
+#include <sys/syscall.h>
+#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>	   
-#include <sys/types.h> 
-#include <stdlib.h>	   
+#include <signal.h>
+#include <time.h>
+#include <sys/wait.h>
+#include <ctype.h>
 
-#define N_PRODUTOS 5
+#define CHILDREN 5
+#define PIPES CHILDREN
+#define MAX_VALUE_TO_GENERATE 5
+#define MIN_VALUE_TO_GENERATE 1
+#define READ 0
+#define WRITE 1
 
+typedef struct{
+    char description[64];
+    int stock;
+    int product_id;
+}product_t;
 
+typedef struct{
+    int iteration_number;
+    int product_id;
+}info_t;
 
 int main(){
-	
-	struct struct1{
-		char nome[50];
-		float preco;
-		int cod_barras;
-	};
-	
-	struct struct1 base_dados[N_PRODUTOS];
-	strcpy(base_dados[0].nome, "Farinha de aveia");
-	base_dados[0].preco = 0.69;
-	base_dados[0].cod_barras = 1;
-	strcpy(base_dados[1].nome, "Grey Goose");
-	base_dados[1].preco = 129.99;
-	base_dados[1].cod_barras = 2;
-	strcpy(base_dados[2].nome, "Redbull");
-	base_dados[2].preco = 2.00;
-	base_dados[2].cod_barras = 3;
-	strcpy(base_dados[3].nome, "Teste Covid");
-	base_dados[3].preco = 4.10;
-	base_dados[3].cod_barras = 4;
-	strcpy(base_dados[4].nome, "Tofu");
-	base_dados[4].preco = 0.79;
-	base_dados[4].cod_barras = 5;
+    
+    product_t array[5];
+    
+    for(int i=0;i<5;i++){
+        strcpy(array[i].description, "description");
+        array[i].stock = i*10+1;
+        array[i].product_id = i+1;
+    }
+    
+    // Pipe de comunicação singular entre pai e cada um dos "barcode readers".
+    int single_pipes[PIPES][2];
+    
+    for(int i=0;i<PIPES;i++){
+        if(pipe(single_pipes[i]) < 0){
+        perror("Pipe");
+        exit(EXIT_FAILURE);
+        }
+    }
+    
+    // Pipe de escrita de todos os "barcode readers".
+    int global_pipe[2];
+    
+    if(pipe(global_pipe) < 0){
+        perror("Pipe");
+        exit(EXIT_FAILURE);
+    }
 
-	int fd[6][2], i, j, indice_, exst;
-	int cod_barras;
-	
-	for(i = 0; i < 6; i++){
-		if(pipe(fd[i]) == -1){
-			perror("Pipe arriou");
-			return 1;
-		}
-	}
-	
-	for(i = 0; i < 5; i++){
-		if(fork() == 0){
-			close(fd[0][0]);
-			close(fd[i+1][1]);
-			printf("Barcode Reader %d - Produtos(1, 2, 3, 4, 5)\n", i+1);
-			scanf("%d", &cod_barras);
-			write(fd[0][1], &cod_barras, sizeof(int));
-			write(fd[0][1], &i, sizeof(int));
-			struct struct1 prod;
-			read(fd[i+1][0], &prod, sizeof(struct struct1));
-			printf("Barcode Reader %d - Nome: %s\nPreco: %.2f euros\n", i+1, prod.nome, prod.preco);
-			close(fd[0][1]);
-			close(fd[i+1][0]);
-			exit(0);
-		}
-	}
+    for(int i=0;i<CHILDREN;i++){
+        pid_t p = fork();
 
-	for(i = 0; i < 5; i++){
-		close(fd[0][1]);
-		close(fd[i+1][0]);
-		read(fd[0][0], &cod_barras, sizeof(int));
-		read(fd[0][0], &indice_, sizeof(int));
-		exst = 0;
-		
-		for(j = 0; j < N_PRODUTOS; j++){
-			if(cod_barras == base_dados[j].cod_barras){
-				write(fd[indice_+1][1], &base_dados[j], sizeof(struct struct1));
-				exst = 1;
-			}
-		}
-		
-		if(exst == 0){
-			struct struct1 prod;
-			strcpy(prod.nome, "Não existe esse produto na base de dados");
-			prod.preco = 0;
-			write(fd[indice_+1][1], &prod, sizeof(struct struct1));
-		}
-	}
+        if(p < 0){
+        perror("Fork");
+        exit(EXIT_FAILURE);
+        }
+        
+        // Código dos filhos.
+        if(p == 0){
+            
+            close(global_pipe[READ]);
+            close(single_pipes[i][WRITE]);
 
-	return 0;
+            // Cada filho cria a sua seed (com base no seu pid para evitar valores iguais).
+            srand(getpid());
+            
+            while(1 == 1){
+            
+                // Gera tempo para dormir durante um bocado (para evitar spam).
+                int sleep_time = rand() % 10;
+                
+                // Gera um product_id (sempre válido) para pedir informação ao processo pai.
+                int product_id = rand() % (MAX_VALUE_TO_GENERATE - MIN_VALUE_TO_GENERATE + 1) + MIN_VALUE_TO_GENERATE;
+                
+                sleep(sleep_time);
+                
+                // Estrutura que vai identificar o pipe que o pai deve escrever + informação de que produto.
+                info_t info;
+                info.iteration_number = i;
+                info.product_id = product_id;
+                
+                write(global_pipe[WRITE], &info, sizeof(info_t));
+                
+                product_t product_info;
+                
+                read(single_pipes[i][READ], &product_info, sizeof(product_t));
+                
+                printf("\tProduct %d Information\nStock: %d\nProduct ID: %d\nDescription: %s\n\n",
+                product_id, product_info.stock, product_info.product_id, product_info.description);
+            }
+            
+            exit(EXIT_SUCCESS);
+        }
+    }
+    
+    close(global_pipe[WRITE]);
+    for(int i=0;i<PIPES;i++){
+        close(single_pipes[i][READ]);
+    }
+    
+    // Para não ficar um programa infinito, passados 15 segundos é enviado um SIGALRM
+    //  para terminar o programa e já com resultados visíveis que o programa funciona.
+    alarm(15);
+    while(1 == 1){
+        info_t info;
+        read(global_pipe[READ], &info, sizeof(info_t));
+        for(int i=0;i<5;i++){
+            if(array[i].product_id == info.product_id){
+                write(single_pipes[info.iteration_number][WRITE], array+i, sizeof(product_t));
+            }
+        }
+    }
+
+    exit(EXIT_SUCCESS);
 }

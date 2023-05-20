@@ -1,1 +1,0 @@
-Não é necessário mecanismo de sincronização pois, não há necessidade de ordenar a leitura e a escrita pois no cenário em que o pai tenta ler antes do filho escrever, o pai só avança após algo ser escrito no pipe.

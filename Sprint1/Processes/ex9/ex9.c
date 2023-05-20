@@ -1,28 +1,41 @@
-/*Write a program that creates 10 child processes. Each child process should print 100 numbers according to its
-  creation order. That is the first child process created writes numbers 1..100, the second child process 101..200,
-  the third 201..300, and so on. The parent process should wait for all child processes to finish.*/
-
-#include <stdio.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/wait.h>
+#include <time.h>
+
+#define CHILD_NUMBER 10
+
+void print_number_set(int min_limit, int max_limit){
+    for(int i=min_limit; i<=max_limit;i++){
+        printf("%d,", i);
+    }
+}
 
 int main(){
+
+    printf("\n\n");
+
     pid_t p;
-    int begin = 1, end = 100;
-    for(int i=0;i<10;i++){
-        if(fork() == 0){
-            for(int x=begin;x<=end;x++)
-                printf("%d|", x);
-            printf("--> [EXECUTED BY PID %d | CHILD %d]\n\n", getpid(), i+1);
-            exit(0);
+    int min=0;
+    int max=0;
+
+    for(int i=0;i<CHILD_NUMBER;i++){
+        min = max + 1;
+        max = min + 99;
+        p = fork();
+        if(p == 0){
+            print_number_set(min, max);
+            printf("\n\n");
+            exit(EXIT_SUCCESS);
         }
-        begin += 100;
-        end += 100;
     }
-    for(int i=0;i<10;i++)
+
+    for(int i=0;i<CHILD_NUMBER;i++){
         wait(NULL);
+    }
 
     return 0;
 }

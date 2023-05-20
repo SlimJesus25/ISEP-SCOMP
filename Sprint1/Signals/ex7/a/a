@@ -1,0 +1,3 @@
+As funções seguras para usar dentro de uma função signal handler são as async-signal-safe.
+Normalmente, funções não reentrantes são (not async-signal-safe) inseguras para se invocar no contexto de signal handler.
+Exemplos: write, sprintf, snprintf, etc...
