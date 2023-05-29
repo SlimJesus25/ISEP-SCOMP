@@ -17,7 +17,7 @@
 #define THREADS 5
 #define ARRAY_SIZE 1000
 
-pthread_cond_t cond[THREADS];
+pthread_cond_t cond;
 pthread_mutex_t mutex;
 int result[ARRAY_SIZE];
 int data[ARRAY_SIZE];
@@ -31,12 +31,16 @@ void* calculations(void *arg){
     for(int i=upper_bound-ARRAY_SIZE/THREADS;i<upper_bound;i++){
         result[i] = data[i] * 10 + 2;
     }
-
+    
+    // Todas as threads menos a primeira devem passar por este excerto de código.
     if(upper_bound > 200){
         pthread_mutex_lock(&mutex);
-        empty = 1;
-        pthread_cond_wait(&cond[index], &mutex);
-        empty = 0;
+        
+        // Caso o empty seja maior ou igual ao index da thread, é sinal que deve avançar.
+        while(empty < index){
+            // Vai "adormecer" uma thread e libertar o mutex especificado no segundo parâmetro.
+            pthread_cond_wait(&cond, &mutex);
+        }
         pthread_mutex_unlock(&mutex);
     }
 
@@ -46,12 +50,15 @@ void* calculations(void *arg){
     }
     printf("\n\n");
     
-    
     if(upper_bound < 1000){
-        while(empty == 0);
-        //pthread_mutex_lock(&mutex);
-        pthread_cond_signal(&cond[index+1]);
-        //pthread_mutex_unlock(&mutex);
+        
+        pthread_mutex_lock(&mutex);
+        empty++;
+        // É feito um broadcast para acordar todas as eventuais threads que estejam "adormecidas" em pthread_cond_wait().
+        // Na ocasião de usar um signal, podia acordar outra thread qualquer que não a desejada (próxima).
+        pthread_cond_broadcast(&cond);
+        pthread_mutex_unlock(&mutex);
+        
     }
 
     pthread_exit(NULL);
@@ -71,13 +78,10 @@ int main(){
 
     fill_array(data);
     
-    empty = 0;
+    empty = 1;
 
     pthread_mutex_init(&mutex, NULL);
-
-    for(int i=0;i<THREADS;i++){
-        pthread_cond_init(&cond[i], NULL);
-    }
+    pthread_cond_init(&cond, NULL);
 
     int* partitions = (int*)calloc(5, sizeof(int));
 
@@ -90,9 +94,8 @@ int main(){
         pthread_join(thread[i], NULL);
     }
 
-    for(int i=0;i<THREADS;i++){
-        pthread_cond_destroy(&cond[i]);
-    }
+    pthread_mutex_destroy(&mutex);
+    pthread_cond_destroy(&cond);
 
     pthread_exit(NULL);
 
